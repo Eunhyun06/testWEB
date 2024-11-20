@@ -83,6 +83,7 @@
     </div>
 
 <script>
+    // 지도생성
     var map;
     var options = {
         mapId : "vmap",
@@ -98,7 +99,8 @@
     map.setOption(options);
     map.start();
 
-    // 건물레이어
+    
+    // 건물레이어 on/off
     var checkLayer = function(c, name) {
         if ($(c).is(":checked")==false) {
             map.getLayerElement(name).hide() // 레이어 숨김
@@ -108,10 +110,8 @@
         }
     }
 
-
-
-// LX맵(연속지적도) WMS
-    var chk = 0;
+// LX맵(연속지적도) WMS    
+   var chk = 0;    
     function wmsSample() {
     var wmsLayer = new vw.Layers();
     wmsSource = new vw.source.TileWMS();
@@ -127,8 +127,65 @@
 
     map.onClick.addEventListener(wfsEvent);
 }
+// 대략적인 마우스 클릭 크기에 맞는 BBOX 영영계산
+    var getBuffer = function(x,y) {
+        position = map.getCurrentPosition().position
+        // var x = position.x
+        // var y = postion.y
+        var z = position.z
 
+        // 110,000Km 1도 단위
+        var m = 1/(110000/z*1.48*50);
+        var n = 1/(110000/z*1.85*50);
 
+        return [m,n];        
+    }
+// LX맵(연속지적도) WFS
+    var wfsEvent = function(windowPosition, ecefPosition, cartographic, featureInfo, event) {
+        var mh = getBuffer(cartographic.longitudeDD, cartographic.latitudeDD);
+        let min = [cartographic.longitudeDD-mh[0], cartographic.latitudeDD-mh[1]]
+        let max = [cartographic.longitudeDD+mh[0], cartographic.latitudeDD+h[1]]
+        let box = min[0]+","+min[1]+","+max[0]+","+max[1]
+
+        $('#wfsForm > [name=BBOX]').val(box);	
+
+         $.ajax({
+                    type: "get",
+                    url: "https://api.vworld.kr/req/wfs",
+                    data : $('#wfsForm').serialize(),
+                    dataType: 'jsonp',
+                    async: false,
+                    jsonpCallback:"parseResponse",
+                    success: function(data) {
+                        var resultHtml = "";
+                        if(data.totalFeatures == 0){
+                            alert("검색결과가 없습니다.");
+                        }else{
+                            if(chk != 0){
+                                var data = data.features[0].properties;
+                                console.log(data);
+                                let resultHtml="";
+                                resultHtml+="<li> - 필지번호(pnu) : "+data.pnu+"</li>";
+                                resultHtml+="<li> - 시도명(sido_nm) : "+data.sido_nm+"</li>";
+                                resultHtml+="<li> - 시군구명(sgg_nm) : "+data.sgg_nm+"</li>";
+                                resultHtml+="<li> - 읍면동명(emd_nm) : "+data.emd_nm+"</li>";
+                                resultHtml+="<li> - 리명(ri_nm) : "+data.ri_nm+"</li>";
+                                resultHtml+="<li> - 지번(jibun) : "+data.jibun+"</li>";
+                                resultHtml+="<li> - 지목(jimok) : "+data.jimok+"</li>";
+                                resultHtml+="<li> - 소유지명(owner_nm) : "+data.owner_nm+"</li>";
+
+                                $('#resultDiv').html(resultHtml);
+                            }
+                            
+                        }//else 종료
+                    },
+                    
+                    error: function(xhr, stat, err) {}
+                });
+            
+    }
+    
+    
 </script>
 </body>
 </html>
